@@ -6,7 +6,6 @@ dotenv.config({
     path: "./backend/.env"
 })
 
-
 const port = process.env.PORT || 5001
 
 connectDb()
