@@ -1,5 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { XSquare, ImageIcon, X } from 'lucide-react';
+import { useCreateProductsMutation } from '../redux/productApiSlice';
+import toast from 'react-hot-toast';
 
 const CreateProduct = ({ open, setOpen }) => {
     const [product, setProduct] = useState({
@@ -9,7 +11,6 @@ const CreateProduct = ({ open, setOpen }) => {
         imageFile: null,
         previewUrl: '',
     });
-    const [error, setError] = useState('');
     const fileInputRef = useRef(null);
 
     const handleChange = (e) => {
@@ -20,15 +21,19 @@ const CreateProduct = ({ open, setOpen }) => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
+            const preview = URL.createObjectURL(file);
             setProduct((prev) => ({
                 ...prev,
                 imageFile: file,
-                previewUrl: URL.createObjectURL(file),
+                previewUrl: preview,
             }));
         }
     };
 
     const removeImage = () => {
+        if (product.previewUrl) {
+            URL.revokeObjectURL(product.previewUrl);
+        }
         setProduct((prev) => ({
             ...prev,
             imageFile: null,
@@ -36,26 +41,57 @@ const CreateProduct = ({ open, setOpen }) => {
         }));
     };
 
+    useEffect(() => {
+        return () => {
+            if (product.previewUrl) {
+                URL.revokeObjectURL(product.previewUrl);
+            }
+        };
+    }, [product.previewUrl]);
+
+    const [createProducts, { isLoading, isError, error }] = useCreateProductsMutation();
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        setError('');
 
         const { title, description, price, imageFile } = product;
 
         if (!title || !description || !price) {
-            setError('All fields except image are required');
+            toast.error('Please fill in all fields');
             return;
         }
 
-        console.log('Product Data:', product);
-        alert('Product data logged in console');
-        setOpen(false);
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        formData.append('price', price);
+        if (imageFile) {
+            formData.append('image', imageFile);
+        }
+
+        createProducts(formData)
+            .unwrap()
+            .then(() => {
+                toast.success('Product created successfully!');
+                setProduct({
+                    title: '',
+                    description: '',
+                    price: '',
+                    imageFile: null,
+                    previewUrl: '',
+                });
+                setOpen(false);
+            })
+            .catch((err) => {
+                console.error('Error creating product:', err);
+                toast.error('Failed to create product');
+            });
     };
 
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 z-50  bg-opacity-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 bg-opacity-40 flex items-center justify-center">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl p-6 relative">
                 <button
                     onClick={() => setOpen(false)}
@@ -66,9 +102,9 @@ const CreateProduct = ({ open, setOpen }) => {
 
                 <h2 className="text-2xl font-bold mb-6">Create New Product</h2>
 
-                {error && (
+                {isError && (
                     <div className="alert alert-error mb-4">
-                        <span>{error}</span>
+                        <span>{error?.data?.message || 'Something went wrong'}</span>
                     </div>
                 )}
 
@@ -101,7 +137,6 @@ const CreateProduct = ({ open, setOpen }) => {
                         step="0.01"
                     />
 
-                    {/* Custom file input trigger */}
                     <div
                         className="flex items-center gap-3 cursor-pointer"
                         onClick={() => fileInputRef.current.click()}
@@ -118,7 +153,6 @@ const CreateProduct = ({ open, setOpen }) => {
                         className="hidden"
                     />
 
-                    {/* Image Preview with Remove Option */}
                     {product.previewUrl && (
                         <div className="relative mt-2">
                             <img
@@ -136,11 +170,8 @@ const CreateProduct = ({ open, setOpen }) => {
                         </div>
                     )}
 
-                    <button
-                        type="submit"
-                        className="btn btn-primary w-full"
-                    >
-                        Create Product
+                    <button type="submit" className="btn btn-primary w-full" disabled={isLoading}>
+                        {isLoading ? 'Creating...' : 'Create Product'}
                     </button>
                 </form>
             </div>

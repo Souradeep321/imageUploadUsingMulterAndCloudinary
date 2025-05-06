@@ -50,7 +50,7 @@ export const createProducts = async (req, res) => {
 export const fetchProducts = async (req, res) => {
     try {
         const products = await Product.find({}).sort({ createdAt: -1 });
-        res.status(200).json({ success: true, length: products.length, data: products });
+        res.status(200).json(products);
     } catch (error) {
         console.log("Error in fetchProducts controller", error);
         res.status(500).json({ error: error.message });

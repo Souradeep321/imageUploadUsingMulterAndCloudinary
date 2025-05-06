@@ -1,39 +1,54 @@
-import { createApi } from "@reduxjs/toolkit/query/react"
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
 
-export const productApiSlice = createApi({
-    reducerPath: "productApi",
-    baseQuery: fetchBaseQuery({
-        baseUrl: "http://localhost:5000/api/v1",
-    }),
-    tagTypes: ["Product"],
+export const productApi = createApi({
+    baseQuery: fetchBaseQuery({ baseUrl: 'http://localhost:5000/api/v1/products' }),
+    tagTypes: ['Product'],
     endpoints: (builder) => ({
-        getProducts: builder.query({
-            query: () => "/products",
-            providesTags: ["Product"],
+        fetchProducts: builder.query({
+            query: () => '/',
+            providesTags: ['Product']
         }),
-        createProduts: builder.mutation({
-            query: (data) => ({
-                url: "/products",
-                method: "POST",
-                body: data,
+        createProducts: builder.mutation({
+            query: (product) => ({
+                url: '/',
+                method: 'POST',
+                body: product,
             }),
-            invalidatesTags: ["Product"],
-            async openQueryFulfilled(product, { dispatch, queryFulfilled }) {
+            invalidatesTags: ['Product'],
+            async onQueryStarted(arg, { queryFulfilled, dispatch }) {
                 const patchResult = dispatch(
-                    productApiSlice.util.updateQueryData(
-                        "getProducts",
-                        undefined,
-                        (draft) => {
-                            draft.push(product)
-                        }
-                    )
+                    productApi.util.updateQueryData('fetchProducts', undefined, (draft) => {
+                        draft.push(arg)
+                    })
                 )
                 try {
                     await queryFulfilled
                 } catch (error) {
-                    console.log(error)
+                    patchResult.undo()
                 }
             }
-        })
+        }),
+        deleteProducts: builder.mutation({
+            query: (id) => ({
+                url: `/${id}`,
+                method: 'DELETE',
+            }),
+            invalidatesTags: ['Product'],
+            async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+                const patchResult = dispatch(
+                    productApi.util.updateQueryData('fetchProducts', undefined, (draft) => {
+                        const findIndex = draft.findIndex((product) => product._id === arg)
+                        draft.splice(findIndex, 1)
+                    })
+                )
+                try {
+                    await queryFulfilled
+                } catch (error) {
+                    patchResult.undo()
+                }
+            }
+        }),
     }),
 })
+
+export const { useFetchProductsQuery, useCreateProductsMutation, useDeleteProductsMutation } = productApi
